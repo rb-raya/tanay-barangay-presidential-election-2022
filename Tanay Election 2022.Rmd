@@ -1,0 +1,101 @@
+---
+title: "Tanay Barangay Presidential Election"
+author: "RB Raya"
+date: "2025-11-07"
+output: github_document
+---
+
+```{r packages}
+library(tidyverse)
+library(readxl)
+library(viridis)
+```
+
+## Data
+
+```{r load-data}
+pres <- read_csv("pres.csv")
+precint <- read_excel("precint.xlsx")
+```
+```{r joining-dfs}
+precint <- precint %>% mutate(precinct = PRECINCT_ID)
+
+df <- precint %>%
+  left_join(pres, by = "precinct") %>% 
+  rename(
+    Candidate_Abella = pres_1_abella,
+    Candidate_De_Guzman = pres_2_de_guzman,
+    Candidate_Domagoso = pres_3_domagoso,
+    Candidate_Gonzales = pres_4_gonzales,
+    Candidate_Lacson = pres_5_lacson,
+    Candidate_Mangondato = pres_6_mangondato,
+    Candidate_Marcos = pres_7_marcos,
+    Candidate_Montemayor = pres_8_montemayor,
+    Candidate_Pacquiao = pres_9_pacquiao,
+    Candidate_Robredo = pres_10_robredo
+  )
+```
+
+```{r brgy-df}
+df_brgy <- df %>%
+  filter(city == "TANAY") %>% 
+  group_by(brgy) %>%
+  summarise(
+    across(starts_with("Cand"), sum, na.rm = TRUE),  
+    .groups = "drop"  
+  ) 
+```
+
+```{r}
+df_long <- df_brgy %>%
+  pivot_longer(
+    cols = starts_with("Cand"),
+    names_to = "candidate",
+    values_to = "votes"
+  ) %>%
+  mutate(candidate = fct_reorder(candidate, votes))
+
+df_total <- df_long %>%
+  group_by(candidate) %>%
+  summarise(total_votes = sum(votes)) %>%
+  ungroup() %>%
+  mutate(candidate = fct_reorder(candidate, total_votes))
+```
+
+
+## Plots
+
+```{r eval = TRUE}
+ggplot(df_total, aes(x = total_votes, y = candidate, fill = candidate)) +
+  geom_col() +
+  geom_text(aes(label = total_votes), hjust = -0.1, size = 4) +
+  labs(
+    title = "Total Votes by Presidential Candidate in Tanay",
+    subtitle = "2022 Presidential Election",
+    x = "Total Votes",
+    y = "Candidates",
+    caption = "Source: COMELEC"
+  ) +
+  theme_minimal() +
+  guides(fill = "none") +
+  scale_fill_viridis_d()
+```
+```{r}
+ggplot(df_long, aes(y = candidate, x = votes, fill = candidate)) + 
+  geom_bar(stat = "identity") + 
+  labs(
+    title = "Candidate Performance Within Each Barangay in Tanay",
+    subtitle = "2022 Presidential Election",
+    x = "Total Votes",
+    y = "Candidate",
+    caption = "Source: COMELEC"
+  ) +
+  facet_wrap(~ brgy, ncol = 4, scales = "free_x") +
+  theme_minimal() +
+  guides(fill = "none") +
+  scale_fill_viridis_d()
+```
+
+
+
+
